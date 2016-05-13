@@ -807,6 +807,28 @@ TIFFUnsetField(TIFF* tif, uint32 tag)
     return (1);
 }
 
+
+
+void* va_argx_uint32p(va_list ap)
+{
+	int condition = 0;
+
+	//return **(uint32***)((ap += sizeof(__int64)) - sizeof(__int64)); //Not the one used
+	//return *(uint32**)((ap += 8) - 8);
+	return *(uint32*)((ap += 8) - 8);
+}
+
+void writeit(va_list ap, int value)
+{
+	int val = *(uint32*)(ap - 4);
+	val = value;
+	return;
+
+	//void* ptr = va_argx_uint32p(ap);
+	//int* ptr2 = (int*)ptr;
+	//int val = *ptr2;
+	//val = value;
+}
 /*
  * Like TIFFSetField, but taking a varargs
  * parameter list.  This routine is useful
@@ -846,6 +868,7 @@ _TIFFVGetField(TIFF* tif, uint32 tag, va_list ap)
 			break;
 		case TIFFTAG_IMAGEWIDTH:
 			*va_arg(ap, uint32*) = td->td_imagewidth;
+			//writeit(ap, td->td_imagewidth);
 			break;
 		case TIFFTAG_IMAGELENGTH:
 			*va_arg(ap, uint32*) = td->td_imagelength;
@@ -1170,8 +1193,14 @@ int
 TIFFVGetField(TIFF* tif, uint32 tag, va_list ap)
 {
 	const TIFFField* fip = TIFFFindField(tif, tag, TIFF_ANY);
-	return (fip && (isPseudoTag(tag) || TIFFFieldSet(tif, fip->field_bit)) ?
-	    (*tif->tif_tagmethods.vgetfield)(tif, tag, ap) : 0);
+	
+	int bitfieldn = ((tif)->tif_dir.td_fieldsset[(fip->field_bit) / 32]);
+	int bitn = (((unsigned long)1L) << ((fip->field_bit) & 0x1f));
+	int fieldset = bitfieldn & bitn;
+	int pseudotag = (tag > 0xffff);
+	int valid = fip && (pseudotag || fieldset);
+
+	return (valid ? (*tif->tif_tagmethods.vgetfield)(tif, tag, ap) : 0);
 }
 
 #define	CleanupField(member) {		\
